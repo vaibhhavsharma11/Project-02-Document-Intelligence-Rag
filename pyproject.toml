@@ -1,0 +1,16 @@
+[project]
+name = "project-02-document-intelligence-rag"
+version = "0.1.0"
+description = "AI-powered document intelligence and Retrieval-Augmented Generation assistant"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "chromadb>=1.5.9",
+    "fastapi",
+    "jinja2",
+    "ollama>=0.6.2",
+    "pymupdf>=1.28.2",
+    "python-multipart",
+    "requests",
+    "uvicorn",
+]
