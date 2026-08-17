@@ -21,6 +21,12 @@ from app.services.rag_service import (
     generate_rag_answer,
 )
 
+from app.schemas.document_schemas import (
+    AskResponse,
+    DocumentQueryRequest,
+    SearchResponse,
+)
+
 
 router = APIRouter(
     prefix="/documents",
@@ -143,65 +149,30 @@ async def upload_document(
         ) from exc
 
 
-@router.post("/search")
+@router.post(
+    "/search",
+    response_model=SearchResponse,
+)
 async def search_documents(
-    payload: dict,
+    payload: DocumentQueryRequest,
 ):
     """
     Perform semantic search across indexed
     document chunks.
     """
 
-    query = payload.get(
-        "query",
-        "",
-    )
-
-    top_k = payload.get(
-        "top_k",
-        3,
-    )
-
-    if not isinstance(query, str):
-        raise HTTPException(
-            status_code=400,
-            detail="Query must be a string.",
-        )
-
-    if not query.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Query is required.",
-        )
-
-    if not isinstance(top_k, int):
-        raise HTTPException(
-            status_code=400,
-            detail="top_k must be an integer.",
-        )
-
-    if top_k <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="top_k must be greater than zero.",
-        )
-
     try:
 
-        results = (
-            retrieve_relevant_chunks(
-                query=query,
-                top_k=top_k,
-            )
+        results = retrieve_relevant_chunks(
+            query=payload.query,
+            top_k=payload.top_k,
         )
 
-        return {
-            "query": query,
-            "result_count": len(
-                results
-            ),
-            "results": results,
-        }
+        return SearchResponse(
+            query=payload.query,
+            result_count=len(results),
+            results=results,
+        )
 
     except Exception as exc:
 
@@ -213,9 +184,12 @@ async def search_documents(
         ) from exc
 
 
-@router.post("/ask")
+@router.post(
+    "/ask",
+    response_model=AskResponse,
+)
 async def ask_document(
-    payload: dict,
+    payload: DocumentQueryRequest,
 ):
     """
     Retrieve relevant document chunks and
@@ -223,60 +197,24 @@ async def ask_document(
     local language model.
     """
 
-    query = payload.get(
-        "query",
-        "",
-    )
-
-    top_k = payload.get(
-        "top_k",
-        3,
-    )
-
-    if not isinstance(query, str):
-        raise HTTPException(
-            status_code=400,
-            detail="Query must be a string.",
-        )
-
-    if not query.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Query is required.",
-        )
-
-    if not isinstance(top_k, int):
-        raise HTTPException(
-            status_code=400,
-            detail="top_k must be an integer.",
-        )
-
-    if top_k <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="top_k must be greater than zero.",
-        )
-
     try:
 
         retrieved_chunks = retrieve_relevant_chunks(
-            query=query,
-            top_k=top_k,
+            query=payload.query,
+            top_k=payload.top_k,
         )
 
         answer = generate_rag_answer(
-            query=query,
+            query=payload.query,
             retrieved_chunks=retrieved_chunks,
         )
 
-        return {
-            "query": query,
-            "answer": answer,
-            "result_count": len(
-                retrieved_chunks
-            ),
-            "results": retrieved_chunks,
-        }
+        return AskResponse(
+            query=payload.query,
+            answer=answer,
+            result_count=len(retrieved_chunks),
+            results=retrieved_chunks,
+        )
 
     except Exception as exc:
 
