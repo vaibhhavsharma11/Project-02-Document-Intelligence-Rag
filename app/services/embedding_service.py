@@ -6,7 +6,10 @@ import ollama
 
 OLLAMA_HOST = os.getenv(
     "OLLAMA_HOST",
-    "http://host.docker.internal:11434",
+    os.getenv(
+        "OLLAMA_URL",
+        "http://host.docker.internal:11434",
+    ),
 )
 
 EMBEDDING_MODEL = os.getenv(
@@ -20,16 +23,22 @@ def get_ollama_client() -> ollama.Client:
     Create an Ollama client using the configured Ollama host.
     """
 
-    return ollama.Client(host=OLLAMA_HOST)
+    return ollama.Client(
+        host=OLLAMA_HOST
+    )
 
 
-def generate_embedding(text: str) -> list[float]:
+def generate_embedding(
+    text: str,
+) -> list[float]:
     """
     Generate an embedding for a single piece of text.
     """
 
     if not text or not text.strip():
-        raise ValueError("Text cannot be empty.")
+        raise ValueError(
+            "Text cannot be empty."
+        )
 
     client = get_ollama_client()
 

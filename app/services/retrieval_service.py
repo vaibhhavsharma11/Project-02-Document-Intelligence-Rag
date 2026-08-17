@@ -5,6 +5,7 @@ from app.services.embedding_service import (
 )
 
 from app.services.vector_store import (
+    DEFAULT_DISTANCE_THRESHOLD,
     VectorStore,
 )
 
@@ -12,16 +13,28 @@ from app.services.vector_store import (
 def retrieve_relevant_chunks(
     query: str,
     top_k: int = 3,
+    document_id: str | None = None,
+    distance_threshold: float = DEFAULT_DISTANCE_THRESHOLD,
 ) -> list[dict[str, Any]]:
     """
-    Convert a user query into an embedding
-    and retrieve the most relevant document
-    chunks from ChromaDB.
+    Generate an embedding for the query, perform semantic
+    retrieval, apply a relevance threshold, and return
+    normalized document chunks.
     """
 
-    if not query.strip():
+    if not query or not query.strip():
         raise ValueError(
             "Query cannot be empty."
+        )
+
+    if top_k <= 0:
+        raise ValueError(
+            "top_k must be greater than zero."
+        )
+
+    if distance_threshold <= 0:
+        raise ValueError(
+            "distance_threshold must be greater than zero."
         )
 
     query_embedding = generate_embedding(
@@ -30,9 +43,11 @@ def retrieve_relevant_chunks(
 
     vector_store = VectorStore()
 
-    results = vector_store.search(
+    results = vector_store.search_with_threshold(
         query_embedding=query_embedding,
         top_k=top_k,
+        distance_threshold=distance_threshold,
+        document_id=document_id,
     )
 
     documents = results.get(
@@ -50,11 +65,9 @@ def retrieve_relevant_chunks(
         [[]],
     )[0]
 
-    retrieved_chunks = []
+    retrieved_chunks: list[dict[str, Any]] = []
 
-    for index, document in enumerate(
-        documents
-    ):
+    for index, text in enumerate(documents):
         metadata = (
             metadatas[index]
             if index < len(metadatas)
@@ -69,7 +82,7 @@ def retrieve_relevant_chunks(
 
         retrieved_chunks.append(
             {
-                "text": document,
+                "text": text,
                 "metadata": metadata,
                 "distance": distance,
             }

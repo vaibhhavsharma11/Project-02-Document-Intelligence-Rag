@@ -9,22 +9,29 @@ from fastapi import (
     UploadFile,
 )
 
-from app.services.ingestion_service import (
-    ingest_pdf,
+from app.schemas.document_schemas import (
+    AskResponse,
+    DocumentListResponse,
+    DocumentQueryRequest,
+    DocumentSummaryResponse,
+    SearchResponse,
 )
 
-from app.services.retrieval_service import (
-    retrieve_relevant_chunks,
+from app.services.document_catalogue_service import (
+    get_document,
+    list_documents,
+)
+
+from app.services.ingestion_service import (
+    ingest_pdf,
 )
 
 from app.services.rag_service import (
     generate_rag_answer,
 )
 
-from app.schemas.document_schemas import (
-    AskResponse,
-    DocumentQueryRequest,
-    SearchResponse,
+from app.services.retrieval_service import (
+    retrieve_relevant_chunks,
 )
 
 
@@ -87,7 +94,6 @@ async def upload_document(
         )
 
     try:
-
         document = ingest_pdf(
             str(file_path),
             document_id,
@@ -149,6 +155,78 @@ async def upload_document(
         ) from exc
 
 
+@router.get(
+    "",
+    response_model=DocumentListResponse,
+)
+async def list_indexed_documents():
+    """
+    List all documents currently represented
+    in the vector store.
+    """
+
+    try:
+        documents = list_documents()
+
+        return DocumentListResponse(
+            document_count=len(documents),
+            documents=documents,
+        )
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Unable to list documents: {exc}"
+            ),
+        ) from exc
+
+
+@router.get(
+    "/{document_id}",
+    response_model=DocumentSummaryResponse,
+)
+async def get_indexed_document(
+    document_id: str,
+):
+    """
+    Return metadata and indexing statistics
+    for a specific document.
+    """
+
+    try:
+        document = get_document(
+            document_id
+        )
+
+        if document is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Document not found: "
+                    f"{document_id}"
+                ),
+            )
+
+        return DocumentSummaryResponse(
+            **document
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Unable to retrieve document: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
 @router.post(
     "/search",
     response_model=SearchResponse,
@@ -159,13 +237,20 @@ async def search_documents(
     """
     Perform semantic search across indexed
     document chunks.
+
+    Retrieval can optionally be restricted
+    to a specific document and relevance
+    threshold.
     """
 
     try:
-
         results = retrieve_relevant_chunks(
             query=payload.query,
             top_k=payload.top_k,
+            document_id=payload.document_id,
+            distance_threshold=(
+                payload.distance_threshold
+            ),
         )
 
         return SearchResponse(
@@ -195,24 +280,35 @@ async def ask_document(
     Retrieve relevant document chunks and
     generate a grounded answer using the
     local language model.
+
+    Retrieval can optionally be restricted
+    to a specific document and relevance
+    threshold.
     """
 
     try:
-
-        retrieved_chunks = retrieve_relevant_chunks(
-            query=payload.query,
-            top_k=payload.top_k,
+        retrieved_chunks = (
+            retrieve_relevant_chunks(
+                query=payload.query,
+                top_k=payload.top_k,
+                document_id=payload.document_id,
+                distance_threshold=(
+                    payload.distance_threshold
+                ),
+            )
         )
 
         answer = generate_rag_answer(
             query=payload.query,
-            retrieved_chunks=retrieved_chunks,
+            chunks=retrieved_chunks,
         )
 
         return AskResponse(
             query=payload.query,
             answer=answer,
-            result_count=len(retrieved_chunks),
+            result_count=len(
+                retrieved_chunks
+            ),
             results=retrieved_chunks,
         )
 

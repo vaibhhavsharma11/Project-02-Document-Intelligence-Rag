@@ -4,8 +4,11 @@ import requests
 
 
 OLLAMA_URL = os.getenv(
-    "OLLAMA_URL",
-    "http://localhost:11434",
+    "OLLAMA_HOST",
+    os.getenv(
+        "OLLAMA_URL",
+        "http://localhost:11434",
+    ),
 )
 
 OLLAMA_MODEL = os.getenv(

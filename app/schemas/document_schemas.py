@@ -7,12 +7,34 @@ class DocumentQueryRequest(BaseModel):
     query: str = Field(
         ...,
         min_length=1,
-        description="Natural-language question or semantic search query.",
+        description=(
+            "Natural-language question or semantic search query."
+        ),
     )
+
     top_k: int = Field(
         default=3,
         gt=0,
-        description="Number of relevant document chunks to retrieve.",
+        description=(
+            "Maximum number of relevant document chunks to retrieve."
+        ),
+    )
+
+    document_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional document ID used to restrict retrieval "
+            "to a specific document."
+        ),
+    )
+
+    distance_threshold: float = Field(
+        default=450.0,
+        gt=0,
+        description=(
+            "Maximum ChromaDB distance allowed for a result "
+            "to be considered relevant."
+        ),
     )
 
 
@@ -33,3 +55,18 @@ class AskResponse(BaseModel):
     answer: str
     result_count: int
     results: list[DocumentChunkResponse]
+
+
+class DocumentSummaryResponse(BaseModel):
+    document_id: str
+    chunk_count: int
+    page_count: int
+    character_count: int
+    min_page_number: int | None = None
+    max_page_number: int | None = None
+    chunk_indexes: list[int]
+
+
+class DocumentListResponse(BaseModel):
+    document_count: int
+    documents: list[DocumentSummaryResponse]
