@@ -6,7 +6,6 @@ from app.services.embedding_service import (
     OLLAMA_HOST,
 )
 
-
 OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL",
     "llama3.2:3b",
@@ -26,37 +25,76 @@ def generate_rag_answer(
     retrieved_chunks: list[dict],
 ) -> str:
     """
-    Generate an answer using the user's query and retrieved document chunks.
+    Generate a grounded answer using the user's query
+    and retrieved document chunks.
     """
 
     if not query or not query.strip():
-        raise ValueError("Query cannot be empty.")
+        raise ValueError(
+            "Query cannot be empty."
+        )
 
     if not retrieved_chunks:
         return (
-            "I could not find relevant information in the uploaded "
-            "documents to answer this question."
+            "I could not find relevant information in the "
+            "uploaded documents to answer this question."
         )
 
     context_parts = []
 
-    for index, chunk in enumerate(retrieved_chunks, start=1):
-        text = chunk.get("text", "").strip()
+    for index, chunk in enumerate(
+        retrieved_chunks,
+        start=1,
+    ):
+        text = chunk.get(
+            "text",
+            "",
+        ).strip()
+
+        metadata = chunk.get(
+            "metadata",
+            {},
+        )
 
         if not text:
             continue
 
-        context_parts.append(
-            f"[Source {index}]\n{text}"
+        document_id = metadata.get(
+            "document_id",
+            "unknown",
         )
 
-    context = "\n\n".join(context_parts)
+        page_number = metadata.get(
+            "page_number",
+            "unknown",
+        )
+
+        chunk_index = metadata.get(
+            "chunk_index",
+            "unknown",
+        )
+
+        context_parts.append(
+            f"[Source {index}]\n"
+            f"Document ID: {document_id}\n"
+            f"Page: {page_number}\n"
+            f"Chunk: {chunk_index}\n"
+            f"Content:\n{text}"
+        )
+
+    context = "\n\n".join(
+        context_parts
+    )
 
     prompt = f"""
 You are a document intelligence assistant.
 
 Answer the user's question using ONLY the information contained
 in the provided document context.
+
+The document context includes source metadata such as document ID,
+page number, and chunk number. Use this information to understand
+where the retrieved information came from.
 
 If the answer cannot be found in the context, clearly say that
 the information is not available in the provided document.
@@ -86,4 +124,6 @@ Answer:
         ],
     )
 
-    return response["message"]["content"].strip()
+    return response[
+        "message"
+    ]["content"].strip()
