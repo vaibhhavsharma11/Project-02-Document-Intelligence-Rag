@@ -10,6 +10,44 @@ from app.services.vector_store import (
 )
 
 
+def _calculate_relevance_score(
+    distance: float,
+    distance_threshold: float,
+) -> float:
+    """
+    Convert a vector distance into a normalized
+    retrieval relevance score between 0 and 1.
+
+    A score of 1.0 represents a perfect match
+    relative to the configured threshold, while
+    a score approaching 0.0 represents a result
+    near the relevance boundary.
+    """
+
+    if distance < 0:
+        raise ValueError(
+            "Distance cannot be negative."
+        )
+
+    if distance_threshold <= 0:
+        raise ValueError(
+            "Distance threshold must be greater than zero."
+        )
+
+    score = (
+        1.0
+        - (
+            distance
+            / distance_threshold
+        )
+    )
+
+    return round(
+        max(0.0, min(1.0, score)),
+        4,
+    )
+
+
 def retrieve_relevant_chunks(
     query: str,
     top_k: int = 3,
@@ -18,8 +56,9 @@ def retrieve_relevant_chunks(
 ) -> list[dict[str, Any]]:
     """
     Generate an embedding for the query, perform semantic
-    retrieval, apply a relevance threshold, and return
-    normalized document chunks.
+    retrieval, apply a relevance threshold, calculate a
+    normalized relevance score, and return normalized
+    document chunks.
     """
 
     if not query or not query.strip():
@@ -34,7 +73,7 @@ def retrieve_relevant_chunks(
 
     if distance_threshold <= 0:
         raise ValueError(
-            "distance_threshold must be greater than zero."
+            "Distance threshold must be greater than zero."
         )
 
     query_embedding = generate_embedding(
@@ -65,9 +104,13 @@ def retrieve_relevant_chunks(
         [[]],
     )[0]
 
-    retrieved_chunks: list[dict[str, Any]] = []
+    retrieved_chunks: list[
+        dict[str, Any]
+    ] = []
 
-    for index, text in enumerate(documents):
+    for index, text in enumerate(
+        documents
+    ):
         metadata = (
             metadatas[index]
             if index < len(metadatas)
@@ -80,11 +123,26 @@ def retrieve_relevant_chunks(
             else None
         )
 
+        relevance_score = None
+
+        if distance is not None:
+            relevance_score = (
+                _calculate_relevance_score(
+                    distance=distance,
+                    distance_threshold=(
+                        distance_threshold
+                    ),
+                )
+            )
+
         retrieved_chunks.append(
             {
                 "text": text,
                 "metadata": metadata,
                 "distance": distance,
+                "relevance_score": (
+                    relevance_score
+                ),
             }
         )
 

@@ -32,7 +32,7 @@ class DocumentQueryRequest(BaseModel):
         default=450.0,
         gt=0,
         description=(
-            "Maximum ChromaDB distance allowed for a result "
+            "Maximum vector distance allowed for a result "
             "to be considered relevant."
         ),
     )
@@ -42,6 +42,14 @@ class DocumentChunkResponse(BaseModel):
     text: str
     metadata: dict[str, Any]
     distance: float | None = None
+    relevance_score: float | None = Field(
+        default=None,
+        description=(
+            "Normalized retrieval relevance score between "
+            "0 and 1. This is a relative retrieval-quality "
+            "indicator, not a probability."
+        ),
+    )
 
 
 class SearchResponse(BaseModel):
