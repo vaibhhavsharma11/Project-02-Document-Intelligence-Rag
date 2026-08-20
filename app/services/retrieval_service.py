@@ -17,11 +17,6 @@ def _calculate_relevance_score(
     """
     Convert a vector distance into a normalized
     retrieval relevance score between 0 and 1.
-
-    A score of 1.0 represents a perfect match
-    relative to the configured threshold, while
-    a score approaching 0.0 represents a result
-    near the relevance boundary.
     """
 
     if distance < 0:
@@ -48,46 +43,14 @@ def _calculate_relevance_score(
     )
 
 
-def retrieve_relevant_chunks(
-    query: str,
-    top_k: int = 3,
-    document_id: str | None = None,
-    distance_threshold: float = DEFAULT_DISTANCE_THRESHOLD,
+def _normalize_retrieval_results(
+    results: dict[str, Any],
+    distance_threshold: float,
 ) -> list[dict[str, Any]]:
     """
-    Generate an embedding for the query, perform semantic
-    retrieval, apply a relevance threshold, calculate a
-    normalized relevance score, and return normalized
-    document chunks.
+    Convert raw vector-store results into the
+    normalized retrieval response format.
     """
-
-    if not query or not query.strip():
-        raise ValueError(
-            "Query cannot be empty."
-        )
-
-    if top_k <= 0:
-        raise ValueError(
-            "top_k must be greater than zero."
-        )
-
-    if distance_threshold <= 0:
-        raise ValueError(
-            "Distance threshold must be greater than zero."
-        )
-
-    query_embedding = generate_embedding(
-        query
-    )
-
-    vector_store = VectorStore()
-
-    results = vector_store.search_with_threshold(
-        query_embedding=query_embedding,
-        top_k=top_k,
-        distance_threshold=distance_threshold,
-        document_id=document_id,
-    )
 
     documents = results.get(
         "documents",
@@ -147,3 +110,96 @@ def retrieve_relevant_chunks(
         )
 
     return retrieved_chunks
+
+
+def retrieve_relevant_chunks(
+    query: str,
+    top_k: int = 3,
+    document_id: str | None = None,
+    distance_threshold: float = DEFAULT_DISTANCE_THRESHOLD,
+) -> list[dict[str, Any]]:
+    """
+    Generate an embedding for the query, perform semantic
+    retrieval, apply a relevance threshold, calculate a
+    normalized relevance score, and return normalized
+    document chunks.
+    """
+
+    if not query or not query.strip():
+        raise ValueError(
+            "Query cannot be empty."
+        )
+
+    if top_k <= 0:
+        raise ValueError(
+            "top_k must be greater than zero."
+        )
+
+    if distance_threshold <= 0:
+        raise ValueError(
+            "Distance threshold must be greater than zero."
+        )
+
+    query_embedding = generate_embedding(
+        query
+    )
+
+    vector_store = VectorStore()
+
+    results = vector_store.search_with_threshold(
+        query_embedding=query_embedding,
+        top_k=top_k,
+        distance_threshold=distance_threshold,
+        document_id=document_id,
+    )
+
+    return _normalize_retrieval_results(
+        results=results,
+        distance_threshold=distance_threshold,
+    )
+
+
+def retrieve_document_chunks_for_comparison(
+    query: str,
+    document_id: str,
+    top_k: int = 3,
+) -> list[dict[str, Any]]:
+    """
+    Retrieve the strongest semantic matches from one
+    explicitly selected document for comparison.
+
+    Unlike normal RAG retrieval, comparison retrieval
+    does not apply the global relevance threshold.
+    """
+
+    if not query or not query.strip():
+        raise ValueError(
+            "Query cannot be empty."
+        )
+
+    if not document_id:
+        raise ValueError(
+            "Document ID cannot be empty."
+        )
+
+    if top_k <= 0:
+        raise ValueError(
+            "top_k must be greater than zero."
+        )
+
+    query_embedding = generate_embedding(
+        query
+    )
+
+    vector_store = VectorStore()
+
+    results = vector_store.search_document(
+        query_embedding=query_embedding,
+        document_id=document_id,
+        top_k=top_k,
+    )
+
+    return _normalize_retrieval_results(
+        results=results,
+        distance_threshold=DEFAULT_DISTANCE_THRESHOLD,
+    )

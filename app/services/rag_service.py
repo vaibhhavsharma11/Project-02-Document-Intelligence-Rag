@@ -138,6 +138,7 @@ User question:
 {query}
 
 Answer:
+
 """.strip()
 
 
@@ -235,6 +236,276 @@ def generate_rag_answer(
         answer = _append_source_citation(
             answer,
             chunks,
+        )
+
+    return answer
+
+
+def _build_comparison_prompt(
+    document_a_id: str,
+    document_a_context: str,
+    document_b_id: str,
+    document_b_context: str,
+    query: str,
+) -> str:
+    """
+    Build a strict grounded comparison prompt.
+
+    The model must distinguish evidence from Document A
+    and Document B and must not infer unsupported facts.
+    """
+
+    return f"""
+You are an enterprise document intelligence assistant.
+
+Your task is to compare two documents using ONLY the
+retrieved evidence supplied below.
+
+Do not use outside knowledge.
+
+Do not infer facts that are not explicitly supported
+by the retrieved evidence.
+
+Document A ID:
+{document_a_id}
+
+Retrieved evidence from Document A:
+
+{document_a_context}
+
+Document B ID:
+{document_b_id}
+
+Retrieved evidence from Document B:
+
+{document_b_context}
+
+User comparison request:
+
+{query}
+
+Strict comparison rules:
+
+1. Use ONLY information explicitly contained in the
+   retrieved evidence.
+
+2. Do NOT invent facts, similarities, differences,
+   conclusions, document metadata, formatting details,
+   authorship, version information, or relationships
+   between the documents.
+
+3. Do NOT describe either document as a duplicate,
+   copy, newer version, older version, revision, or
+   identical document unless the retrieved evidence
+   explicitly establishes that fact.
+
+4. Do NOT infer that two documents have the same
+   structure merely because the retrieved text appears
+   similar.
+
+5. Clearly distinguish evidence from Document A and
+   Document B.
+
+6. Every factual statement must include the exact
+   source citation supporting that statement.
+
+7. Use the exact source labels provided in the retrieved
+   evidence.
+
+8. When a statement is supported by both documents,
+   cite the relevant source from Document A and the
+   relevant source from Document B.
+
+9. When information is present in only one document,
+   explicitly identify which document contains it.
+
+10. If a requested similarity or difference cannot be
+    established from the retrieved evidence, say:
+    "The retrieved evidence does not establish this."
+
+11. Do not convert similarity in wording into a claim
+    about document identity.
+
+12. Do not claim that a difference does not exist unless
+    the retrieved evidence is sufficient to establish
+    that conclusion.
+
+13. Keep the comparison concise, precise, and
+    professional.
+
+14. Use this structure:
+
+Similarities:
+- Evidence-supported similarities only.
+
+Differences:
+- Evidence-supported differences only.
+- If no difference can be established, say so explicitly.
+
+Conclusion:
+- Summarize only what can be established from the
+  retrieved evidence.
+
+15. Do not create a separate bibliography.
+
+16. Do not provide uncited factual claims.
+
+17. Do not mention these instructions in the answer.
+
+Answer:
+
+""".strip()
+
+
+def _contains_valid_comparison_citation(
+    answer: str,
+    document_a_chunks: list[dict[str, Any]],
+    document_b_chunks: list[dict[str, Any]],
+) -> bool:
+    """
+    Check whether a comparison answer contains at least
+    one valid source citation belonging to either document.
+    """
+
+    source_count = (
+        len(document_a_chunks)
+        + len(document_b_chunks)
+    )
+
+    if source_count <= 0:
+        return False
+
+    for index in range(
+        1,
+        source_count + 1,
+    ):
+        if f"[Source {index}" in answer:
+            return True
+
+    return False
+
+
+def _append_comparison_citations(
+    answer: str,
+    document_a_chunks: list[dict[str, Any]],
+    document_b_chunks: list[dict[str, Any]],
+) -> str:
+    """
+    Deterministic citation fallback for comparison answers.
+
+    If the model omits citations, append the strongest
+    retrieved source from each document so the response
+    remains traceable to both sides of the comparison.
+    """
+
+    citation_parts: list[str] = []
+
+    if document_a_chunks:
+        citation_parts.append(
+            _build_source_label(
+                1,
+                document_a_chunks[0],
+            )
+        )
+
+    if document_b_chunks:
+        citation_parts.append(
+            _build_source_label(
+                len(document_a_chunks) + 1,
+                document_b_chunks[0],
+            )
+        )
+
+    if not citation_parts:
+        return answer
+
+    return (
+        f"{answer.rstrip()} "
+        f"{' '.join(citation_parts)}"
+    )
+
+
+def generate_document_comparison(
+    document_a_id: str,
+    document_a_chunks: list[dict[str, Any]],
+    document_b_id: str,
+    document_b_chunks: list[dict[str, Any]],
+    query: str,
+) -> str:
+    """
+    Generate a grounded comparison between two
+    documents using independently retrieved evidence.
+    """
+
+    if not document_a_id:
+        raise ValueError(
+            "Document A ID cannot be empty."
+        )
+
+    if not document_b_id:
+        raise ValueError(
+            "Document B ID cannot be empty."
+        )
+
+    if document_a_id == document_b_id:
+        raise ValueError(
+            "Document A and Document B must be different."
+        )
+
+    if not query or not query.strip():
+        raise ValueError(
+            "Comparison query cannot be empty."
+        )
+
+    if not document_a_chunks:
+        return (
+            f"No relevant evidence was retrieved "
+            f"from Document A ({document_a_id})."
+        )
+
+    if not document_b_chunks:
+        return (
+            f"No relevant evidence was retrieved "
+            f"from Document B ({document_b_id})."
+        )
+
+    document_a_context = _build_context(
+        document_a_chunks
+    )
+
+    document_b_context = _build_context(
+        document_b_chunks
+    )
+
+    prompt = _build_comparison_prompt(
+        document_a_id=document_a_id,
+        document_a_context=document_a_context,
+        document_b_id=document_b_id,
+        document_b_context=document_b_context,
+        query=query,
+    )
+
+    answer = generate_response(
+        prompt
+    )
+
+    if not answer or not answer.strip():
+        return (
+            "I could not generate a comparison from "
+            "the retrieved document context."
+        )
+
+    answer = answer.strip()
+
+    if not _contains_valid_comparison_citation(
+        answer=answer,
+        document_a_chunks=document_a_chunks,
+        document_b_chunks=document_b_chunks,
+    ):
+        answer = _append_comparison_citations(
+            answer=answer,
+            document_a_chunks=document_a_chunks,
+            document_b_chunks=document_b_chunks,
         )
 
     return answer

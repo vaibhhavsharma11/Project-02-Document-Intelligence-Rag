@@ -42,6 +42,7 @@ class DocumentChunkResponse(BaseModel):
     text: str
     metadata: dict[str, Any]
     distance: float | None = None
+
     relevance_score: float | None = Field(
         default=None,
         description=(
@@ -78,3 +79,60 @@ class DocumentSummaryResponse(BaseModel):
 class DocumentListResponse(BaseModel):
     document_count: int
     documents: list[DocumentSummaryResponse]
+
+
+class DocumentComparisonRequest(BaseModel):
+    document_a_id: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Document ID for the first document."
+        ),
+    )
+
+    document_b_id: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Document ID for the second document."
+        ),
+    )
+
+    query: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Natural-language comparison request."
+        ),
+    )
+
+    top_k: int = Field(
+        default=3,
+        gt=0,
+        description=(
+            "Maximum number of relevant chunks to retrieve "
+            "from each document."
+        ),
+    )
+
+    distance_threshold: float = Field(
+        default=450.0,
+        gt=0,
+        description=(
+            "Maximum vector distance allowed for retrieved "
+            "chunks from either document."
+        ),
+    )
+
+
+class DocumentComparisonResponse(BaseModel):
+    document_a_id: str
+    document_b_id: str
+    query: str
+    answer: str
+
+    document_a_result_count: int
+    document_b_result_count: int
+
+    document_a_results: list[DocumentChunkResponse]
+    document_b_results: list[DocumentChunkResponse]

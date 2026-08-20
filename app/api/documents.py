@@ -11,6 +11,8 @@ from fastapi import (
 
 from app.schemas.document_schemas import (
     AskResponse,
+    DocumentComparisonRequest,
+    DocumentComparisonResponse,
     DocumentListResponse,
     DocumentQueryRequest,
     DocumentSummaryResponse,
@@ -27,10 +29,12 @@ from app.services.ingestion_service import (
 )
 
 from app.services.rag_service import (
+    generate_document_comparison,
     generate_rag_answer,
 )
 
 from app.services.retrieval_service import (
+    retrieve_document_chunks_for_comparison,
     retrieve_relevant_chunks,
 )
 
@@ -318,6 +322,120 @@ async def ask_document(
             status_code=500,
             detail=(
                 f"Question answering failed: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
+@router.post(
+    "/compare",
+    response_model=DocumentComparisonResponse,
+)
+async def compare_documents(
+    payload: DocumentComparisonRequest,
+):
+    """
+    Compare evidence retrieved independently
+    from two indexed documents.
+
+    Each document is searched separately using
+    the same comparison query. The strongest
+    matches from each selected document are
+    retrieved independently without applying
+    the normal global relevance threshold.
+
+    The retrieved evidence is then supplied to
+    the local language model for grounded
+    comparison.
+    """
+
+    if (
+        payload.document_a_id
+        == payload.document_b_id
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Document A and Document B "
+                "must be different."
+            ),
+        )
+
+    try:
+        document_a = get_document(
+            payload.document_a_id
+        )
+
+        if document_a is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Document A not found: "
+                    f"{payload.document_a_id}"
+                ),
+            )
+
+        document_b = get_document(
+            payload.document_b_id
+        )
+
+        if document_b is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Document B not found: "
+                    f"{payload.document_b_id}"
+                ),
+            )
+
+        document_a_chunks = (
+            retrieve_document_chunks_for_comparison(
+                query=payload.query,
+                document_id=payload.document_a_id,
+                top_k=payload.top_k,
+            )
+        )
+
+        document_b_chunks = (
+            retrieve_document_chunks_for_comparison(
+                query=payload.query,
+                document_id=payload.document_b_id,
+                top_k=payload.top_k,
+            )
+        )
+
+        answer = generate_document_comparison(
+            document_a_id=payload.document_a_id,
+            document_a_chunks=document_a_chunks,
+            document_b_id=payload.document_b_id,
+            document_b_chunks=document_b_chunks,
+            query=payload.query,
+        )
+
+        return DocumentComparisonResponse(
+            document_a_id=payload.document_a_id,
+            document_b_id=payload.document_b_id,
+            query=payload.query,
+            answer=answer,
+            document_a_result_count=len(
+                document_a_chunks
+            ),
+            document_b_result_count=len(
+                document_b_chunks
+            ),
+            document_a_results=document_a_chunks,
+            document_b_results=document_b_chunks,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Document comparison failed: "
                 f"{exc}"
             ),
         ) from exc

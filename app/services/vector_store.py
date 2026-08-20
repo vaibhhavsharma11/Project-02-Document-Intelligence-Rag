@@ -200,6 +200,49 @@ class VectorStore:
             ],
         }
 
+    def search_document(
+        self,
+        query_embedding: list[float],
+        document_id: str,
+        top_k: int = 3,
+    ) -> dict[str, Any]:
+        """
+        Perform semantic search restricted to one specific
+        document without applying the global relevance
+        threshold.
+
+        This is used by document comparison so that each
+        selected document gets an independent opportunity
+        to provide evidence.
+        """
+
+        if not query_embedding:
+            raise ValueError(
+                "Query embedding cannot be empty."
+            )
+
+        if not document_id:
+            raise ValueError(
+                "Document ID cannot be empty."
+            )
+
+        if top_k <= 0:
+            raise ValueError(
+                "top_k must be greater than zero."
+            )
+
+        results = self.collection.query(
+            query_embeddings=[
+                query_embedding
+            ],
+            n_results=top_k,
+            where={
+                "document_id": document_id,
+            },
+        )
+
+        return results
+
     def get_all_chunks(
         self,
     ) -> dict[str, Any]:
