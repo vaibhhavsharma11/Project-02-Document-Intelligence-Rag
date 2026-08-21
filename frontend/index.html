@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Document Intelligence · Project 02
+    </title>
+
+    <meta
+        name="description"
+        content="Production-style document intelligence with grounded RAG, source-backed answers and document comparison."
+    >
+
+    <link
+        rel="stylesheet"
+        href="/static/styles.css"
+    >
+</head>
+
+<body>
+
+<div class="app-shell">
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="brand-mark">
+                DI
+            </div>
+
+            <div class="brand-copy">
+                <div class="brand-name">
+                    Document Intelligence
+                </div>
+
+                <div class="brand-subtitle">
+                    Project 02 · Applied AI
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="topbar-meta">
+
+            <div class="system-status">
+                <span class="status-dot"></span>
+
+                <span>
+                    System online
+                </span>
+            </div>
+
+            <div class="topbar-divider"></div>
+
+            <span class="stack-label">
+                FastAPI · Chroma · Ollama
+            </span>
+
+        </div>
+
+    </header>
+
+
+    <main class="main-content">
+
+        <section class="hero">
+
+            <div class="hero-copy">
+
+                <div class="eyebrow">
+                    PROJECT 02 / DOCUMENT INTELLIGENCE
+                </div>
+
+                <h1>
+                    Ask your documents.
+                    <span>Trust the evidence.</span>
+                </h1>
+
+                <p>
+                    A production-style Retrieval-Augmented Generation
+                    system that turns unstructured documents into
+                    searchable, explainable intelligence.
+                </p>
+
+            </div>
+
+
+            <div class="hero-capabilities">
+
+                <div class="capability">
+                    <span class="capability-number">
+                        01
+                    </span>
+
+                    <div>
+                        <strong>
+                            Ingest
+                        </strong>
+
+                        <span>
+                            PDF → chunks → embeddings
+                        </span>
+                    </div>
+                </div>
+
+
+                <div class="capability">
+                    <span class="capability-number">
+                        02
+                    </span>
+
+                    <div>
+                        <strong>
+                            Retrieve
+                        </strong>
+
+                        <span>
+                            Semantic evidence search
+                        </span>
+                    </div>
+                </div>
+
+
+                <div class="capability">
+                    <span class="capability-number">
+                        03
+                    </span>
+
+                    <div>
+                        <strong>
+                            Reason
+                        </strong>
+
+                        <span>
+                            Grounded local LLM answers
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <section class="workspace">
+
+            <aside class="sidebar">
+
+                <div class="sidebar-heading">
+
+                    <div>
+
+                        <div class="panel-kicker">
+                            KNOWLEDGE BASE
+                        </div>
+
+                        <h2>
+                            Documents
+                        </h2>
+
+                    </div>
+
+                    <span
+                        id="document-count"
+                        class="count-badge"
+                    >
+                        0
+                    </span>
+
+                </div>
+
+
+                <div
+                    id="document-list"
+                    class="document-list"
+                >
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            +
+                        </div>
+
+                        <p>
+                            No indexed documents
+                        </p>
+
+                        <span>
+                            Upload a PDF to build your knowledge base.
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div class="upload-card">
+
+                    <div class="upload-card-top">
+
+                        <div class="upload-icon">
+                            ↑
+                        </div>
+
+                        <div>
+
+                            <strong>
+                                Add document
+                            </strong>
+
+                            <p>
+                                Upload a PDF and index its contents
+                                for semantic retrieval.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <input
+                        id="file-input"
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        hidden
+                    >
+
+
+                    <button
+                        id="upload-button"
+                        class="secondary-button"
+                    >
+                        Choose PDF
+                        <span>→</span>
+                    </button>
+
+
+                    <div
+                        id="upload-status"
+                        class="upload-status"
+                    ></div>
+
+                </div>
+
+
+                <div class="sidebar-note">
+
+                    <span class="sidebar-note-icon">
+                        ✓
+                    </span>
+
+                    <p>
+                        Answers are generated only from
+                        retrieved document evidence.
+                    </p>
+
+                </div>
+
+            </aside>
+
+
+            <section class="content-area">
+
+                <div class="mode-tabs">
+
+                    <button
+                        class="mode-tab active"
+                        data-mode="ask"
+                    >
+
+                        <span class="tab-icon">
+                            ✦
+                        </span>
+
+                        <span>
+                            Ask documents
+                        </span>
+
+                    </button>
+
+
+                    <button
+                        class="mode-tab"
+                        data-mode="compare"
+                    >
+
+                        <span class="tab-icon">
+                            ⇄
+                        </span>
+
+                        <span>
+                            Compare documents
+                        </span>
+
+                    </button>
+
+                </div>
+
+
+                <!-- ASK MODE -->
+
+                <div
+                    id="ask-panel"
+                    class="mode-panel active"
+                >
+
+                    <div class="section-intro">
+
+                        <div>
+
+                            <div class="panel-kicker">
+                                GROUNDED Q&A
+                            </div>
+
+                            <h2>
+                                Ask your documents
+                            </h2>
+
+                            <p>
+                                Search the indexed knowledge base and
+                                generate an answer grounded in retrieved
+                                source evidence.
+                            </p>
+
+                        </div>
+
+
+                        <div class="mode-badge">
+                            RAG
+                        </div>
+
+                    </div>
+
+
+                    <div class="query-card">
+
+                        <div class="query-label-row">
+
+                            <label for="ask-query">
+                                Your question
+                            </label>
+
+                            <span>
+                                CMD / CTRL + ENTER
+                            </span>
+
+                        </div>
+
+
+                        <textarea
+                            id="ask-query"
+                            rows="4"
+                            placeholder="What technologies are used in this document?"
+                        ></textarea>
+
+
+                        <div class="query-footer">
+
+                            <div class="query-hint">
+
+                                <span class="hint-dot"></span>
+
+                                Retrieved evidence is shown
+                                below every answer.
+
+                            </div>
+
+
+                            <button
+                                id="ask-button"
+                                class="primary-button"
+                            >
+                                Ask documents
+                                <span>→</span>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="ask-loading"
+                        class="loading-state hidden"
+                    >
+
+                        <div class="spinner"></div>
+
+                        <div>
+                            <strong>
+                                Searching the knowledge base
+                            </strong>
+
+                            <span>
+                                Retrieving evidence and generating
+                                a grounded response…
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="ask-result"
+                        class="result-area hidden"
+                    >
+
+                        <div class="answer-card">
+
+                            <div class="answer-card-header">
+
+                                <div>
+
+                                    <div class="result-label">
+                                        ANSWER
+                                    </div>
+
+                                    <div class="answer-title">
+                                        Grounded response
+                                    </div>
+
+                                </div>
+
+                                <div class="grounding-badge">
+                                    <span>●</span>
+                                    Source backed
+                                </div>
+
+                            </div>
+
+
+                            <div
+                                id="answer-content"
+                                class="answer-content"
+                            ></div>
+
+                        </div>
+
+
+                        <div class="evidence-section">
+
+                            <div class="section-header">
+
+                                <div>
+
+                                    <div class="result-label">
+                                        RETRIEVED EVIDENCE
+                                    </div>
+
+                                    <h3>
+                                        Supporting sources
+                                    </h3>
+
+                                </div>
+
+
+                                <span
+                                    id="ask-result-count"
+                                    class="result-count"
+                                >
+                                    0 sources
+                                </span>
+
+                            </div>
+
+
+                            <div
+                                id="ask-evidence"
+                                class="evidence-list"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- COMPARE MODE -->
+
+                <div
+                    id="compare-panel"
+                    class="mode-panel"
+                >
+
+                    <div class="section-intro">
+
+                        <div>
+
+                            <div class="panel-kicker">
+                                DOCUMENT COMPARISON
+                            </div>
+
+                            <h2>
+                                Compare two documents
+                            </h2>
+
+                            <p>
+                                Retrieve evidence independently from
+                                each document and identify what the
+                                sources actually establish.
+                            </p>
+
+                        </div>
+
+
+                        <div class="mode-badge">
+                            2 SOURCES
+                        </div>
+
+                    </div>
+
+
+                    <div class="comparison-card">
+
+                        <div class="document-selectors">
+
+                            <div class="selector-group">
+
+                                <div class="selector-label">
+                                    <span class="selector-index">
+                                        A
+                                    </span>
+
+                                    <label for="document-a">
+                                        Document A
+                                    </label>
+                                </div>
+
+
+                                <select id="document-a">
+
+                                    <option value="">
+                                        Select a document
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="compare-symbol">
+                                ⇄
+                            </div>
+
+
+                            <div class="selector-group">
+
+                                <div class="selector-label">
+                                    <span class="selector-index">
+                                        B
+                                    </span>
+
+                                    <label for="document-b">
+                                        Document B
+                                    </label>
+                                </div>
+
+
+                                <select id="document-b">
+
+                                    <option value="">
+                                        Select a document
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="query-label-row">
+
+                            <label for="compare-query">
+                                Comparison question
+                            </label>
+
+                            <span>
+                                GROUNDED COMPARISON
+                            </span>
+
+                        </div>
+
+
+                        <textarea
+                            id="compare-query"
+                            rows="3"
+                            placeholder="What technologies are used in these documents?"
+                        ></textarea>
+
+
+                        <div class="query-footer">
+
+                            <div class="query-hint">
+
+                                <span class="hint-dot"></span>
+
+                                Each document is retrieved
+                                independently.
+
+                            </div>
+
+
+                            <button
+                                id="compare-button"
+                                class="primary-button"
+                            >
+                                Compare
+                                <span>→</span>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="compare-loading"
+                        class="loading-state hidden"
+                    >
+
+                        <div class="spinner"></div>
+
+                        <div>
+
+                            <strong>
+                                Comparing evidence
+                            </strong>
+
+                            <span>
+                                Retrieving both documents and
+                                analysing their supported content…
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="compare-result"
+                        class="result-area hidden"
+                    >
+
+                        <div class="answer-card">
+
+                            <div class="answer-card-header">
+
+                                <div>
+
+                                    <div class="result-label">
+                                        COMPARISON
+                                    </div>
+
+                                    <div class="answer-title">
+                                        Evidence-based analysis
+                                    </div>
+
+                                </div>
+
+                                <div class="grounding-badge">
+                                    <span>●</span>
+                                    Independently retrieved
+                                </div>
+
+                            </div>
+
+
+                            <div
+                                id="comparison-content"
+                                class="answer-content"
+                            ></div>
+
+                        </div>
+
+
+                        <div class="comparison-evidence">
+
+                            <div class="evidence-column">
+
+                                <div class="section-header compact">
+
+                                    <div>
+
+                                        <div class="result-label">
+                                            DOCUMENT A
+                                        </div>
+
+                                        <h3>
+                                            Retrieved evidence
+                                        </h3>
+
+                                    </div>
+
+
+                                    <span
+                                        id="document-a-count"
+                                        class="result-count"
+                                    >
+                                        0 sources
+                                    </span>
+
+                                </div>
+
+
+                                <div
+                                    id="document-a-evidence"
+                                    class="evidence-list"
+                                ></div>
+
+                            </div>
+
+
+                            <div class="evidence-column">
+
+                                <div class="section-header compact">
+
+                                    <div>
+
+                                        <div class="result-label">
+                                            DOCUMENT B
+                                        </div>
+
+                                        <h3>
+                                            Retrieved evidence
+                                        </h3>
+
+                                    </div>
+
+
+                                    <span
+                                        id="document-b-count"
+                                        class="result-count"
+                                    >
+                                        0 sources
+                                    </span>
+
+                                </div>
+
+
+                                <div
+                                    id="document-b-evidence"
+                                    class="evidence-list"
+                                ></div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="error-message"
+                    class="error-message hidden"
+                ></div>
+
+            </section>
+
+        </section>
+
+    </main>
+
+
+    <footer class="footer">
+
+        <div class="footer-brand">
+            Document Intelligence
+            <span>·</span>
+            Project 02
+        </div>
+
+        <div class="footer-stack">
+            FastAPI · Chroma · Ollama · Python
+        </div>
+
+    </footer>
+
+</div>
+
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>

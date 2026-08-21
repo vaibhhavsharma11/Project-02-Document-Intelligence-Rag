@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir uv
 RUN uv sync --frozen
 
 COPY app ./app
+COPY frontend ./frontend
 
 EXPOSE 8000
 

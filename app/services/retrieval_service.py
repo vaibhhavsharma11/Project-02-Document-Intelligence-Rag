@@ -3,7 +3,6 @@ from typing import Any
 from app.services.embedding_service import (
     generate_embedding,
 )
-
 from app.services.vector_store import (
     DEFAULT_DISTANCE_THRESHOLD,
     VectorStore,
@@ -38,7 +37,10 @@ def _calculate_relevance_score(
     )
 
     return round(
-        max(0.0, min(1.0, score)),
+        max(
+            0.0,
+            min(1.0, score),
+        ),
         4,
     )
 
@@ -123,6 +125,9 @@ def retrieve_relevant_chunks(
     retrieval, apply a relevance threshold, calculate a
     normalized relevance score, and return normalized
     document chunks.
+
+    When document_id is supplied, retrieval is restricted
+    to that document.
     """
 
     if not query or not query.strip():
@@ -168,8 +173,9 @@ def retrieve_document_chunks_for_comparison(
     Retrieve the strongest semantic matches from one
     explicitly selected document for comparison.
 
-    Unlike normal RAG retrieval, comparison retrieval
-    does not apply the global relevance threshold.
+    Comparison retrieval intentionally does not apply
+    the global relevance threshold because each document
+    must be evaluated independently.
     """
 
     if not query or not query.strip():

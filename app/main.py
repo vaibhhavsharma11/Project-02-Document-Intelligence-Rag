@@ -1,7 +1,11 @@
+from pathlib import Path
+
 from fastapi import (
     FastAPI,
     HTTPException,
 )
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.api.documents import (
@@ -13,6 +17,8 @@ from app.services.ollama_service import (
 
 
 APP_VERSION = "1.0.0"
+
+FRONTEND_DIRECTORY = Path("frontend")
 
 
 app = FastAPI(
@@ -33,6 +39,26 @@ class ChatRequest(BaseModel):
 app.include_router(
     documents_router
 )
+
+
+if FRONTEND_DIRECTORY.exists():
+    app.mount(
+        "/static",
+        StaticFiles(
+            directory=str(FRONTEND_DIRECTORY)
+        ),
+        name="static",
+    )
+
+
+@app.get(
+    "/",
+    include_in_schema=False,
+)
+async def frontend():
+    return FileResponse(
+        FRONTEND_DIRECTORY / "index.html"
+    )
 
 
 @app.get("/health")
@@ -66,7 +92,6 @@ async def ai_test(
     request: ChatRequest,
 ):
     try:
-
         answer = generate_response(
             request.prompt
         )
@@ -77,7 +102,6 @@ async def ai_test(
         }
 
     except Exception as exc:
-
         raise HTTPException(
             status_code=502,
             detail=(
